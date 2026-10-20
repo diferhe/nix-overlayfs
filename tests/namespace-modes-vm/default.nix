@@ -24,6 +24,7 @@ else
     launchProbe = pkgs.writeShellScript "namespace-modes-vm-probe" ''
       set -eu
       test -f "$1"
+      test "$NIX_OVERLAYFS_TEST_PRE_UID" = "$(id --user)"
       root="''${1%/probe}"
       test "$(stat --format=%u "$root/drive_c/vendor/rename-me")" = "$(id --user)"
       mv "$root/drive_c/vendor/rename-me" "$root/drive_c/vendor/renamed"
@@ -42,6 +43,9 @@ else
       executableName = "namespace-modes-vm";
       executablePath = "/probe";
       launchProgram = launchProbe;
+      extraPreLaunchCommands = ''
+        export NIX_OVERLAYFS_TEST_PRE_UID="$(id --user)"
+      '';
     };
   in
   pkgs.testers.nixosTest {
