@@ -158,9 +158,9 @@ let
     export WINEDLLOVERRIDES="mscoree,mshtml=d''${WINEDLLOVERRIDES:+;$WINEDLLOVERRIDES}"
   '';
 
-  wineMonoPatchCommands = lib.optionalString (wineMonoVersion == "11.1.0") ''
-    # wine-mono 11.1.0's MSI link custom actions fail under the Nix build
-    # sandbox with Wine 11.8. The payload and support MSI still install
+  wineMonoPatchCommands = lib.optionalString (builtins.elem wineMonoVersion [ "11.1.0" "11.3.0" ]) ''
+    # Wine Mono's MSI link custom actions fail under the Nix build
+    # sandbox with Wine 11.8 and 11.20. The payload and support MSI still install
     # cleanly without those deduplication/link actions.
     msibuild ./mono.msi -q "DELETE FROM InstallExecuteSequence WHERE Action = 'CREATELINKS'"
     msibuild ./mono.msi -q "DELETE FROM InstallExecuteSequence WHERE Action = 'CREATELINKS64'"
