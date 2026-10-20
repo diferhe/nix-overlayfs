@@ -30,6 +30,7 @@ else
       rm "$root/drive_c/vendor/delete-me"
       test "$(cat "$root/drive_c/vendor/renamed")" = rename
       test ! -e "$root/drive_c/vendor/delete-me"
+      test "$NIX_OVERLAYFS_TEST_PRE_UID" = "$(id --user)"
       {
         printf 'direct=%s\n' "''${NIX_OVERLAYFS_DIRECT_MODE:-0}"
         printf 'mount_namespace=%s\n' "$(readlink /proc/self/ns/mnt)"
@@ -42,6 +43,9 @@ else
       executableName = "namespace-modes-vm";
       executablePath = "/probe";
       launchProgram = launchProbe;
+      extraPreLaunchCommands = ''
+        export NIX_OVERLAYFS_TEST_PRE_UID="$(id --user)"
+      '';
     };
   in
   pkgs.testers.nixosTest {
