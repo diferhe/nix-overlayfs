@@ -42,6 +42,8 @@
   launchVncServer ? false,
   unshareInstall ? null,
   buildNamespaceMode ? "auto",
+  # Materialized builds avoid overlayfs EXDEV when Wine renames reparse directories.
+  portableReparsePoints ? false,
   hostIntegration ? true,
   managedRuntime ? "auto",
   namespaceMode ? "auto",
@@ -194,6 +196,10 @@ let
             ''
               set -e
 
+              ${lib.optionalString portableReparsePoints ''
+                export LD_PRELOAD="${scripts.portableReparse}/lib/libwine-portable-reparse.so''${LD_PRELOAD:+:$LD_PRELOAD}"
+              ''}
+
               cleanup_runtime_session() {
                 local status=$?
                 ${buildSession.postCommands}
@@ -222,8 +228,15 @@ let
           ++ (lib.optionals (unshareInstall != null) [
             (unshareInstall {
               inherit runtime;
-              session = buildSession;
+              session = buildSession // {
+                commands = buildSession.commands // {
+                  normalizeReparsePoints = "${scripts.portableReparse}/bin/normalize-wine-reparse.py";
+                };
+              };
             })
+          ])
+          ++ (lib.optionals portableReparsePoints [
+            ''${scripts.portableReparse}/bin/normalize-wine-reparse.py "$WINEPREFIX" || exit $?''
           ])
           ++ (lib.optionals launchVncServer [
             ''
@@ -338,7 +351,9 @@ let
           export temp=$(mktemp -d)
           export originalUser=$(id --user --name)
 
-          namespace_mode=${lib.escapeShellArg buildNamespaceMode}
+          namespace_mode=${
+            lib.escapeShellArg (if portableReparsePoints then "direct" else buildNamespaceMode)
+          }
           if [ "$namespace_mode" = auto ]; then
             if unshare --map-root-user --mount true 2>/dev/null; then
               namespace_mode=required
@@ -429,6 +444,9 @@ let
     };
 in
 assert _checkBuildNamespaceMode;
+assert lib.assertMsg (
+  !(portableReparsePoints && buildNamespaceMode == "required")
+) "portableReparsePoints requires a materialized build; use buildNamespaceMode auto or direct";
 assert _checkManagedRuntime;
 mkOverlayfsPackage {
   inherit
